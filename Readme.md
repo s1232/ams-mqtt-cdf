@@ -10,7 +10,7 @@ Minimal implementation of an MQTT client that
 
 
 ## Configuration
-Configuration is `config.toml` in the working directory.
+Configuration is `config.toml` in the working directory, or a path set by the optional environment variable `AMSCLIENT_CONFIG`.
 
 ```toml
 [mqtt]
