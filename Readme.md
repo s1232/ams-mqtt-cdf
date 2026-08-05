@@ -34,3 +34,29 @@ timeseries_external_id = ""
 
 
 ## Service setup
+Run as a Systemd service so it restarts automatically when the MQTT connection drops
+Example unit, e.g. `/etc/systemd/system/amsclient.service`:
+
+```ini
+[Unit]
+Description=AMS client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/amsclient
+Environment="AMSCLIENT_CONFIG=/etc/amsclient/config.toml"
+Restart=on-failure
+RestartSec=5
+User=amsclient
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start it:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now amsclient
+```
