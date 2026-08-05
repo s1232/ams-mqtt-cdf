@@ -1,20 +1,21 @@
+use crate::config::CogniteConfig;
 use cognite::AuthenticatorConfig;
 use cognite::CogniteClient;
 
-pub fn get_client() -> CogniteClient {
+pub fn get_client(config: &CogniteConfig) -> CogniteClient {
     let auth_config = AuthenticatorConfig {
-        client_id: std::env::var("COGNITE_CLIENT_ID").unwrap(),
-        secret: std::env::var("COGNITE_CLIENT_SECRET").unwrap(),
-        token_url: std::env::var("COGNITE_TOKEN_URL").unwrap(),
+        client_id: config.client_id.clone(),
+        secret: config.client_secret.clone(),
+        token_url: config.token_url.clone(),
         resource: None,
         audience: None,
         scopes: None,
         default_expires_in: None,
     };
     CogniteClient::new_from_oidc(
-        "https://greenfield.cognitedata.com",
+        &config.base_url,
         auth_config,
-        "arild-lab",
+        &config.project,
         "amsreadings",
         None,
     )

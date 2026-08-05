@@ -1,36 +1,53 @@
 use cognite::models::instances::{InstanceId, Timeseries};
 use cognite::time_series::{AddDatapoints, AddTimeSeries, DatapointDouble, DatapointsEnumType};
 use cognite::{CogniteClient, IdentityOrInstance};
+use config::{CogniteConfig, MqttConfig};
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use std::time::Duration;
-
 mod cog;
+mod config;
 mod decode;
 
-async fn subscribe(cognite_client: CogniteClient) {
-    let mut mqttoptions = MqttOptions::new("rumqtt-async", "pi5", 1883);
+async fn subscribe(
+    cognite_client: CogniteClient,
+    mqtt_config: &MqttConfig,
+    cognite_config: &CogniteConfig,
+) {
+    let mut mqttoptions = MqttOptions::new(
+        "rumqtt-async",
+        mqtt_config.broker_host.clone(),
+        mqtt_config.broker_port,
+    );
     mqttoptions.set_keep_alive(Duration::from_secs(5));
 
     let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
-    client.subscribe("tibber", QoS::AtMostOnce).await.unwrap();
+    client
+        .subscribe(mqtt_config.topic.clone(), QoS::AtMostOnce)
+        .await
+        .unwrap();
     loop {
         let notification = eventloop.poll().await.unwrap();
         if let Event::Incoming(msg) = notification
             && let Packet::Publish(msg) = msg
+            && let Ok(value) = decode::decode(msg.payload.to_vec())
         {
-            if let Ok(value) = decode::decode(msg.payload.to_vec()) {
-                insert_datapoints(
-                    cognite_client.clone(),
-                    chrono::Utc::now().timestamp_millis(),
-                    value as f64,
-                )
-                .await;
-            }
+            insert_datapoints(
+                cognite_client.clone(),
+                cognite_config,
+                chrono::Utc::now().timestamp_millis(),
+                value as f64,
+            )
+            .await;
         }
     }
 }
 
-async fn insert_datapoints(client: CogniteClient, time: i64, value: f64) {
+async fn insert_datapoints(
+    client: CogniteClient,
+    cognite_config: &CogniteConfig,
+    time: i64,
+    value: f64,
+) {
     use cognite::Identity;
     use cognite::models::instances::{CogniteTimeseries, TimeSeriesType};
     use cognite::time_series::AddDmOrTimeSeries;
@@ -40,8 +57,8 @@ async fn insert_datapoints(client: CogniteClient, time: i64, value: f64) {
             vec![AddDatapoints {
                 id: IdentityOrInstance::InstanceId {
                     instance_id: InstanceId {
-                        space: "Nibe".to_string(),
-                        external_id: "amsreading".to_string(),
+                        space: cognite_config.timeseries_space.clone(),
+                        external_id: cognite_config.timeseries_external_id.clone(),
                     },
                 },
                 datapoints: DatapointsEnumType::NumericDatapoints(vec![DatapointDouble {
@@ -81,6 +98,7 @@ async fn insert_datapoints(client: CogniteClient, time: i64, value: f64) {
 
 #[tokio::main]
 async fn main() {
-    let client = cog::get_client();
-    subscribe(client).await;
+    let config = config::load();
+    let client = cog::get_client(&config.cognite);
+    subscribe(client, &config.mqtt, &config.cognite).await;
 }
