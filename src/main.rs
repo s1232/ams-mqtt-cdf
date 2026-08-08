@@ -1,4 +1,4 @@
-use cognite::models::instances::{InstanceId, Timeseries};
+use cognite::models::instances::{CogniteDescribable, InstanceId, Timeseries};
 use cognite::time_series::{AddDatapoints, AddTimeSeries, DatapointDouble, DatapointsEnumType};
 use cognite::{CogniteClient, IdentityOrInstance};
 use config::{CogniteConfig, MqttConfig};
@@ -81,7 +81,17 @@ async fn insert_datapoints(
                             let mut timeseries = CogniteTimeseries::new(
                                 instance_id.space.to_string(),
                                 instance_id.external_id.to_string(),
-                                Timeseries::new(false),
+                                // Timeseries::new(false),
+                                Timeseries {
+                                    description: CogniteDescribable {
+                                        name: Some("PowerReadingsG25".to_string()),
+                                        description: Some("Power readings G25".to_string()),
+                                        tags: None,
+                                        aliases: None,
+                                    },
+                                    is_step: false,
+                                    ..Default::default()
+                                },
                             );
                             timeseries.properties.r#type = TimeSeriesType::Numeric;
                             AddDmOrTimeSeries::Cdm(Box::new(timeseries))
